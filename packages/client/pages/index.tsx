@@ -1,25 +1,53 @@
 /** @jsx jsx */
 import { css, jsx } from "@emotion/core";
-import { Box, List, ListItem, Textarea } from "@chakra-ui/core";
+import { Box, Button, List, ListItem, Textarea } from "@chakra-ui/core";
 import socketIOClient from "socket.io-client";
 import { useEffect, useState } from "react";
 
 const ENDPOINT = "http://localhost:3001";
+let socket;
 
 export default function Home() {
   let [chat, setChat] = useState([]);
+  let [textInput, setTextInput] = useState("");
   useEffect(() => {
-    const socket = socketIOClient(ENDPOINT);
+    socket = socketIOClient(ENDPOINT);
+
+    socket.on("open", function () {
+      console.log("Conected!");
+    });
 
     socket.on("newMessage", (data) => {
-      let newChat = [...chat, data];
+      console.log("message received: " + data);
+      let newChat = chat;
+      newChat.push(data);
+      console.log(newChat);
       setChat(newChat);
+    });
+
+    socket.on("close", function () {
+      console.log("Disconnected");
+    });
+
+    socket.on("error", function (e) {
+      if (e.error() != "websocket: close sent") {
+        console.log("An unexpected error occured: ", e.error());
+      }
     });
   }, []);
 
-  let textChat = (messages) => {
-    let messageList = messages.map((message) => {
-      return <ListItem>testMessage</ListItem>;
+  let sendChat = () => {
+    socket.emit("sendMessage", textInput);
+  };
+
+  let handleTextAreaChange = (e) => {
+    let inputValue = e.target.value;
+    setTextInput(inputValue);
+  };
+
+  let textChat = () => {
+    let messageList = chat.map((message) => {
+      return <ListItem>{message}</ListItem>;
     });
     return <List styleType="disc">{messageList}</List>;
   };
@@ -43,9 +71,16 @@ export default function Home() {
           flex: 1;
         `}
       >
-        {textChat}
+        {textChat()}
       </Box>
-      <Textarea placeholder="Here is a sample placeholder" />
+      <Textarea
+        placeholder="Here is a sample placeholder"
+        value={textInput}
+        onChange={handleTextAreaChange}
+      />
+      <Button variantColor="green" onClick={() => sendChat()}>
+        Send
+      </Button>
     </div>
   );
 }
